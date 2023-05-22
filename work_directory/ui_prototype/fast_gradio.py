@@ -93,21 +93,28 @@ class ScanUI:
         im = cv2.cvtColor(incoming_im, cv2.COLOR_BGR2GRAY)
 
         # Rescale Image
-        target_px = 256
-        if im.shape[1] > target_px:
+        target_px = 200
+        if im.shape[1] < im.shape[0]:
             scale = im.shape[1] / target_px
-            width = int(im.shape[1] * scale / 100)
-            height = int(im.shape[0] * scale / 100)
-            dim = (width, height)
-            resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA)
         else:
-            resized = im
+            scale = im.shape[0] / target_px
+
+        width = int(im.shape[1] * scale / 100)
+        height = int(im.shape[0] * scale / 100)
+        dim = (width, height)
+        resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA)
+        resized = im
+
+        if resized.shape[0] > target_px:
+            crop_px = resized.shape[0] - target_px
+            resized = resized[crop_px:target_px + crop_px, :]
+        elif resized.shape[1] > target_px:
+            crop_px = resized.shape[1] - target_px
+            resized = resized[:, crop_px:target_px + crop_px]
 
         scans = self.run_scan(resized)
 
-
         ims = []
-        print(scans.shape)
 
         scans_norm = (scans-np.min(scans))/(np.max(scans)-np.min(scans))
         num_show = 10
