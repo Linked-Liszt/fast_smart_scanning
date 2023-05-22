@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import matplotlib as mpl
 import skimage
+from tqdm import tqdm
 from tqdm.notebook import tqdm
 import tifffile as tif
 import joblib
@@ -21,13 +22,13 @@ class ScanUI:
         self.main_interface()
 
 
-    def run_scan(self, input_im):
+    def run_scan(self, input_im, progress):
         init_pattern = gcn(*input_im.T.shape, 0.01)
 
 
         # Specifying the trained nn model to use
         # We use the model generated for c=2.
-        erd_model_to_load = Path.cwd().parent / 'training/cameraman/c_2/erd_model_relu.pkl'
+        erd_model_to_load = 'training/cameraman/c_2/erd_model_relu.pkl'
 
         # Creating a simulated sample
         # Setting the initial batch size to 50 (inner_batch_size=50)
@@ -45,13 +46,16 @@ class ScanUI:
         count = 0
         new_idxs = init_pattern
 
+        num_px = 50
 
         n_scan_points = int(0.4 * input_im.size)
-        out_ims = np.zeros((n_scan_points // 50, input_im.shape[0], input_im.shape[1] * 2))
+        px_sum = sample_fast.mask.sum() 
+
+        out_ims = np.zeros(((n_scan_points - int(px_sum) - (num_px * 2))// num_px, input_im.shape[0], input_im.shape[1] * 2))
 
         i = 0
-        while sample_fast.mask.sum() < n_scan_points:
-            print(sample_fast.mask.sum(), n_scan_points)
+        while px_sum < n_scan_points:
+            print(f'{px_sum}/{n_scan_points}')
             # Supply the measurement values.
             sample_fast.measurement_interface.finalize_external_measurement(input_im[new_idxs[:,0], new_idxs[:,1]])
             
@@ -62,7 +66,7 @@ class ScanUI:
             sample_fast.reconstruct_and_compute_erd()
             
             # Compute new positions.
-            new_idxs = sample_fast.find_new_measurement_idxs()[:50]
+            new_idxs = sample_fast.find_new_measurement_idxs()[:num_px]
             
             ratio = sample_fast.ratio_measured
             ratios_all.append(ratio)
@@ -76,6 +80,10 @@ class ScanUI:
 
             i += 1
 
+            px_sum = sample_fast.mask.sum() 
+
+        print(f'{i} total: {out_ims.shape}')
+
         return out_ims
 
     def init_image(self):
@@ -87,14 +95,14 @@ class ScanUI:
         return coffee
 
 
-    def render_im(self, incoming_im):
+    def render_im(self, incoming_im, progress=gr.Progress()):
         print(incoming_im.shape)
         print(type(incoming_im))
         im = cv2.cvtColor(incoming_im, cv2.COLOR_BGR2GRAY)
 
         # Rescale Image
-        target_px = 200
-        if im.shape[1] < im.shape[0]:
+        target_px = 128
+        if im.shape[1] > im.shape[0]:
             scale = im.shape[1] / target_px
         else:
             scale = im.shape[0] / target_px
@@ -105,14 +113,15 @@ class ScanUI:
         resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA)
         resized = im
 
+        print(f'sh {resized.shape}')
         if resized.shape[0] > target_px:
             crop_px = resized.shape[0] - target_px
             resized = resized[crop_px:target_px + crop_px, :]
-        elif resized.shape[1] > target_px:
+        if resized.shape[1] > target_px:
             crop_px = resized.shape[1] - target_px
             resized = resized[:, crop_px:target_px + crop_px]
 
-        scans = self.run_scan(resized)
+        scans = self.run_scan(resized, progress)
 
         ims = []
 
@@ -137,7 +146,7 @@ class ScanUI:
 
             im_ul.upload(self.render_im, inputs=[im_ul], outputs=[scan_gal])
 
-        scan_if.launch()
+        scan_if.queue(concurrency_count=1).launch()
     
 
 if __name__ == '__main__':
