@@ -53,8 +53,7 @@ class ScanUI:
 
         out_ims = np.zeros(((n_scan_points - int(px_sum) - (num_px * 2))// num_px, input_im.shape[0], input_im.shape[1] * 2))
 
-        i = 0
-        while px_sum < n_scan_points:
+        for i in progress.tqdm(range(out_ims.shape[0])):
             print(f'{px_sum}/{n_scan_points}')
             # Supply the measurement values.
             sample_fast.measurement_interface.finalize_external_measurement(input_im[new_idxs[:,0], new_idxs[:,1]])
@@ -77,8 +76,6 @@ class ScanUI:
             # Hardcoded for now
             out_ims[i, :, 0:input_im.shape[1]] = sample_fast.mask * 256
             out_ims[i, :, input_im.shape[1]:input_im.shape[1] * 2] = sample_fast.recon_image
-
-            i += 1
 
             px_sum = sample_fast.mask.sum() 
 
