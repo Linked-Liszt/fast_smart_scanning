@@ -13,6 +13,8 @@ from tqdm import tqdm
 from tqdm.notebook import tqdm
 import tifffile as tif
 import joblib
+import io
+from PIL import Image
 import numpy as np
 import cv2
 
@@ -51,7 +53,7 @@ class ScanUI:
         n_scan_points = int(0.4 * input_im.size)
         px_sum = sample_fast.mask.sum() 
 
-        out_ims = np.zeros(((n_scan_points - int(px_sum) - (num_px * 2))// num_px, input_im.shape[0], input_im.shape[1] * 2))
+        out_ims = np.zeros(((n_scan_points - int(px_sum) - (num_px * 2))// num_px, 2, input_im.shape[1], input_im.shape[1]))
 
         for i in progress.tqdm(range(out_ims.shape[0])):
             print(f'{px_sum}/{n_scan_points}')
@@ -74,8 +76,8 @@ class ScanUI:
             masks_all.append(sample_fast.mask.copy())
 
             # Hardcoded for now
-            out_ims[i, :, 0:input_im.shape[1]] = sample_fast.mask * 256
-            out_ims[i, :, input_im.shape[1]:input_im.shape[1] * 2] = sample_fast.recon_image
+            out_ims[i, 0]  = sample_fast.mask * 256
+            out_ims[i, 1] = sample_fast.recon_image
 
             px_sum = sample_fast.mask.sum() 
 
@@ -126,9 +128,24 @@ class ScanUI:
         num_show = 10
         num_px = scans_norm.shape[0] * scans_norm.shape[1]
         num_px_step = 50
+        
         for i in range(0, scans_norm.shape[0], scans_norm.shape[0] // num_show):
             im_idx = i + scans_norm.shape[0] % num_show - 1
-            ims.append((scans_norm[im_idx], str((im_idx * num_px_step) / num_px)))
+
+            fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+            ax[0].imshow(scans_norm[i, 0], cmap='gray')
+            ax[0].set_title(f'Pixels Sampled {((im_idx * num_px_step) / num_px):3f}%')
+            ax[1].imshow(scans_norm[i, 1], cmap='viridis')
+            ax[1].set_title(f'Model Prediction')
+            fig.tight_layout()
+            buf = io.BytesIO()
+            fig.savefig(buf)
+            buf.seek(0)
+            render = Image.open(buf)
+            plt.close(fig)
+
+
+            ims.append((render, f'{((im_idx * num_px_step) / num_px):3f}%'))
 
         print('done')
         
