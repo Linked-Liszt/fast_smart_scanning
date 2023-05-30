@@ -114,10 +114,10 @@ class ScanUI:
 
         print(f'sh {resized.shape}')
         if resized.shape[0] > target_px:
-            crop_px = resized.shape[0] - target_px
+            crop_px = (resized.shape[0] - target_px) // 2
             resized = resized[crop_px:target_px + crop_px, :]
         if resized.shape[1] > target_px:
-            crop_px = resized.shape[1] - target_px
+            crop_px = (resized.shape[1] - target_px) // 2
             resized = resized[:, crop_px:target_px + crop_px]
 
         scans = self.run_scan(resized, progress)
@@ -132,7 +132,7 @@ class ScanUI:
         for i in range(0, scans_norm.shape[0], scans_norm.shape[0] // num_show):
             im_idx = i + scans_norm.shape[0] % num_show - 1
 
-            fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+            fig, ax = plt.subplots(1, 2, figsize=(6, 3))
             ax[0].imshow(scans_norm[i, 0], cmap='gray')
             ax[0].set_title(f'Pixels Sampled {((im_idx * num_px_step) / num_px):3f}%')
             ax[1].imshow(scans_norm[i, 1], cmap='viridis')
@@ -155,7 +155,7 @@ class ScanUI:
     def main_interface(self):
         with gr.Blocks(title='Fast Smart Scan Demo') as scan_if:
             im_ul = gr.Image()
-            scan_gal = gr.Gallery(label='Scan Preview')
+            scan_gal = gr.Gallery(label='Scan Preview').style(height="200px", preview=True)
 
 
             im_ul.upload(self.render_im, inputs=[im_ul], outputs=[scan_gal])
